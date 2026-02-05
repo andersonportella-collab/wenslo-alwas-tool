@@ -4,6 +4,7 @@ import numpy as np
 import io
 import math
 import matplotlib.pyplot as plt
+import datetime
 
 st.set_page_config(page_title="WENSLO + ALWAS Tool", layout="wide")
 
@@ -42,7 +43,8 @@ translations = {
         "graduation_summary_header": "Resumo da graduação por critério",
         "col_n_classes": "Nº de classes",
         "col_min_z": "z (mín)",
-        "col_max_z": "z (máx)"
+        "col_max_z": "z (máx)",
+        "citation_title": "📚 Como citar"
     },
     "English": {
         "title": "WENSLO + ALWAS Tool",
@@ -61,15 +63,45 @@ translations = {
         "graduation_summary_header": "Graduation summary by criterion",
         "col_n_classes": "Number of classes",
         "col_min_z": "z (min)",
-        "col_max_z": "z (max)"
+        "col_max_z": "z (max)",
+        "citation_title": "📚 How to cite"
     }
 }
+
+# ---------- CITAÇÕES ----------
+CITATIONS = {
+    "ABNT": """
+**Formato ABNT:**
+
+**Software:**
+SANTOS, Marcos dos; GOMES, Carlos Francisco Simões. **Wenslo-Alwas Tool**. [S.l.]: Anderson Gonçalves Portella, 2025. Programa de Computador. Registro INPI: BR512025005226-0. Disponível em: <https://wenslo-alwas-tool.streamlit.app/>. Acesso em: {date}.
+
+**Artigo:**
+SILVA, C. S.; SANTOS, M. R. Análise do nível de maturidade em gestão de riscos: um estudo de caso em uma empresa do setor elétrico. In: CONGRESSO NACIONAL DE EXCELÊNCIA EM GESTÃO, 19., 2025, Online. **Anais...** Rio de Janeiro: CNEG, 2025. DOI: doi.org. Acesso em: {date}.
+""",
+    "APA": """
+**APA Format:**
+
+**Software:**
+Santos, M. dos, & Gomes, C. F. S. (2025). *Wenslo-Alwas Tool* [Computer software]. Anderson Gonçalves Portella. https://wenslo-alwas-tool.streamlit.app/
+
+**Article:**
+Silva, C. S., & Santos, M. R. (2025). Análise do nível de maturidade em gestão de riscos: um estudo de caso em uma empresa do setor elétrico. Em *Anais do XIX Congresso Nacional de Excelência em Gestão*. DOI: 10.14488/cneg2025_cneg_pt_068_0567_23581
+"""
+}
+
+def get_citation(lang):
+    """Retorna a citação no formato apropriado com a data atual"""
+    citation_type = "ABNT" if lang == "Português" else "APA"
+    today = datetime.datetime.now().strftime("%d %b. %Y")
+    return CITATIONS[citation_type].format(date=today)
+
 
 # ---------- UI: idioma / strings ----------
 lang = st.sidebar.selectbox("Idioma / Language", options=["Português", "English"], index=0)
 T = translations[lang]
 
-# Sidebar: links (artigo + autores) e controles do heatmap
+# Sidebar: links (artigo + autores)
 st.sidebar.markdown(
     """
     **Artigo / Article**
@@ -84,16 +116,26 @@ st.sidebar.markdown(
     unsafe_allow_html=True
 )
 # botão de download para um PDF local
-with open("metodo.pdf", "rb") as f:
-    pdf_bytes = f.read()
+try:
+    with open("metodo.pdf", "rb") as f:
+        pdf_bytes = f.read()
 
-st.sidebar.download_button(
-    label="📘 Baixar manual / Download manual",
-    data=pdf_bytes,
-    file_name="WENSLO_ALWAS_manual.pdf",
-    mime="application/pdf",
-    key="download_method_pdf"
-)
+    st.sidebar.download_button(
+        label="📘 Baixar manual / Download manual",
+        data=pdf_bytes,
+        file_name="WENSLO_ALWAS_manual.pdf",
+        mime="application/pdf",
+        key="download_method_pdf"
+    )
+except FileNotFoundError:
+    st.sidebar.info("PDF manual not found.")
+
+# ---------- CITAÇÃO NA SIDEBAR ----------
+st.sidebar.markdown("---")
+with st.sidebar.expander(T["citation_title"]):
+    st.markdown(get_citation(lang))
+st.sidebar.markdown("---")
+
 if st.sidebar.button("Limpar resultados / Clean results"):
     st.session_state['results_ready'] = False
     st.session_state['wens'] = None
@@ -105,10 +147,25 @@ if st.sidebar.button("Limpar resultados / Clean results"):
     st.session_state['weights'] = None
     st.session_state['excel_bytes'] = None
     st.session_state['corr_matrix'] = None
+    st.rerun() 
     
-# Escolha do tipo de correlação (Pearson / Spearman) e controle de exibição
+# Escolha do tipo de correlação e controle de exibição
 corr_method = st.sidebar.radio("Método de correlação / Correlation method", options=["Pearson", "Spearman"], index=0)
 show_corr_checkbox = st.sidebar.checkbox("Mostrar heatmap de correlação", value=True)
+
+# ---------- Sensitivity params (MOVIDO PARA CIMA) ----------
+st.sidebar.subheader(T["sensitivity"])
+xi = st.sidebar.slider("ξ (xi)", 1, 50, 1)
+phi = st.sidebar.slider("φ (phi)", 0.0, 1.0, 0.5, step=0.01)
+theta = st.sidebar.slider("θ (theta)", 1, 50, 1)
+
+# --- CONTATO / SUPPORT (MOVIDO PARA CIMA) ---
+st.sidebar.markdown("---")
+st.sidebar.markdown("for support/contact: andersonportella@yahoo.com.br")
+
+# ==========================================
+# INÍCIO DA ÁREA PRINCIPAL
+# ==========================================
 
 st.title(T["title"])
 st.header(T["upload_header"])
@@ -415,12 +472,6 @@ else:
     except Exception as e:
         st.error("Erro ao ler o arquivo: " + str(e))
         st.stop()
-
-# ---------- Sensitivity params ----------
-st.sidebar.subheader(T["sensitivity"])
-xi = st.sidebar.slider("ξ (xi)", 1, 50, 1)
-phi = st.sidebar.slider("φ (phi)", 0.0, 1.0, 0.5, step=0.01)
-theta = st.sidebar.slider("θ (theta)", 1, 50, 1)
 
 # ---------- Run (calcular e salvar em session_state) ----------
 if st.button(T["run"]):
